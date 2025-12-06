@@ -1,5 +1,5 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { shipmentsAPI, Shipment, SearchFilters } from '@/services/api';
+import { SearchFilters, Shipment } from '@/src/services/api';
+import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 type FilterStatus = 'received' | 'putaway' | 'delivered' | 'canceled' | 'rejected' | 'lost' | 'on-hold';
 

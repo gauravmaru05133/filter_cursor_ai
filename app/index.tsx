@@ -1,16 +1,15 @@
-import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { SplashScreen } from '@/components/splash-screen';
+// import { SplashScreen } from '@/components/splash-screen';
+// import { useRouter } from 'expo-router';
 
-export default function IndexScreen() {
-  const router = useRouter();
+// export default function IndexScreen() {
+//   const router = useRouter();
 
-  const handleLoginPress = () => {
-    router.replace('/login');
-  };
+//   const handleLoginPress = () => {
+//     router.replace('/login');
+//   };
 
-  return <SplashScreen onLoginPress={handleLoginPress} />;
-}
+//   return <SplashScreen onLoginPress={handleLoginPress} />;
+// }
 
-
-
+import { SplashView } from "@/src/screens/Splash/view";
+export default SplashView;

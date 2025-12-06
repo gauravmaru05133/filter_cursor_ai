@@ -1,14 +1,13 @@
+import AppText from '@/src/component/Text';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 
 export default function ProfileScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText style={styles.text}>Profile Screen</ThemedText>
-      <ThemedText style={styles.subtext}>User profile and settings</ThemedText>
-    </ThemedView>
+    <View style={styles.container}>
+      <AppText style={styles.text}>Profile Screen</AppText>
+      <AppText style={styles.subtext}>User profile and settings</AppText>
+    </View>
   );
 }
 

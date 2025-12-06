@@ -1,5 +1,5 @@
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { clearError, directLogin, logout } from '@/store/slices/authSlice';
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
+import { clearError, directLogin, logout } from '@/src/store/slices/authSlice';
 import { router } from 'expo-router';
 
 export const useAuthViewModel = () => {

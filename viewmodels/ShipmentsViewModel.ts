@@ -1,13 +1,13 @@
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import {
+  clearSelection,
+  clearStatusFilters,
   fetchShipments,
   setSearchQuery,
-  toggleStatusFilter,
-  clearStatusFilters,
-  toggleShipmentSelection,
   toggleMarkAll,
-  clearSelection,
-} from '@/store/slices/shipmentsSlice';
+  toggleShipmentSelection,
+  toggleStatusFilter,
+} from '@/src/store/slices/shipmentsSlice';
 import { useEffect } from 'react';
 
 type FilterStatus = 'received' | 'putaway' | 'delivered' | 'canceled' | 'rejected' | 'lost' | 'on-hold';
