@@ -1,63 +1,48 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useAuthViewModel } from '@/viewmodels/AuthViewModel';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
-// Mock API call for login
-const mockLoginAPI = async (url: string, email: string, password: string): Promise<{ success: boolean; message: string }> => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  const validCredentials = [
-    { url: 'https://www.brandimic.com', email: 'ali@brandimic.com', password: 'password123' },
-    { url: 'https://www.brandimic.com', email: 'test@example.com', password: 'password123' },
-  ];
-
-  const isValid = validCredentials.some(
-    cred => cred.url === url && cred.email === email && cred.password === password
-  );
-
-  if (isValid) {
-    return { success: true, message: 'Login successful!' };
-  } else {
-    return { success: false, message: 'Invalid credentials' };
-  }
-};
-
 export default function LoginScreen() {
-  const [url, setUrl] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  // Default credentials
+  const DEFAULT_URL = 'https://www.brandimic.com';
+  const DEFAULT_EMAIL = 'ali@brandimic.com';
+  const DEFAULT_PASSWORD = 'password123';
+
+  const [url, setUrl] = useState(DEFAULT_URL);
+  const [email, setEmail] = useState(DEFAULT_EMAIL);
+  const [password, setPassword] = useState(DEFAULT_PASSWORD);
+  
+  const { isLoading, error, handleLogin, clearAuthError } = useAuthViewModel();
 
   const isFormValid = url.trim() !== '' && email.trim() !== '' && password.trim() !== '';
 
-  const handleLogin = async () => {
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Login Failed', error);
+      clearAuthError();
+    }
+  }, [error, clearAuthError]);
+
+  const onLogin = async () => {
     if (!isFormValid) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const result = await mockLoginAPI(url, email, password);
-      if (result.success) {
-        router.replace('/(tabs)');
-      } else {
-        Alert.alert('Login Failed', result.message);
-      }
-    } catch {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    } finally {
-      setIsLoading(false);
+    const result = await handleLogin(url, email, password);
+    if (!result.success && result.message) {
+      Alert.alert('Login Failed', result.message);
     }
   };
 
@@ -66,9 +51,9 @@ export default function LoginScreen() {
   };
 
   const fillTestCredentials = () => {
-    setUrl('https://www.brandimic.com');
-    setEmail('ali@brandimic.com');
-    setPassword('password123');
+    setUrl(DEFAULT_URL);
+    setEmail(DEFAULT_EMAIL);
+    setPassword(DEFAULT_PASSWORD);
   };
 
   return (
@@ -141,7 +126,7 @@ export default function LoginScreen() {
             isFormValid ? styles.loginButtonActive : styles.loginButtonInactive,
             isLoading && styles.loginButtonLoading
           ]}
-          onPress={handleLogin}
+          onPress={onLogin}
           disabled={!isFormValid || isLoading}
         >
           <ThemedText style={[

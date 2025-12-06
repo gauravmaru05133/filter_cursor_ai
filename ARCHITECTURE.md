@@ -34,17 +34,25 @@
 ## Architecture Overview
 
 ### Architecture Pattern
-The application follows a **Component-Based Architecture** with:
+The application follows **MVVM (Model-View-ViewModel) Architecture** with:
 - **File-based routing** (Expo Router)
-- **Separation of concerns** (Components, Services, Hooks)
+- **Redux Toolkit** for centralized state management
+- **ViewModels** to connect Views with Models
+- **Separation of concerns** (Components, Services, ViewModels, Store)
 - **Mock API layer** for development
-- **Centralized state management** (React hooks)
+
+### MVVM Structure
+- **Model**: Data structures and business logic (`services/api.ts`)
+- **View**: UI components (`app/`, `components/`)
+- **ViewModel**: Presentation logic connecting View to Model (`viewmodels/`)
+- **Store**: Redux store for state management (`store/`)
 
 ### Design Principles
-1. **Modularity**: Components are self-contained and reusable
-2. **Separation of Concerns**: Business logic separated from UI
+1. **MVVM Pattern**: Clear separation between View, ViewModel, and Model
+2. **Redux Toolkit**: Centralized state management with Redux
 3. **Type Safety**: Full TypeScript implementation
 4. **Scalability**: Easy to extend with new features
+5. **Testability**: ViewModels can be tested independently
 
 ---
 
@@ -58,6 +66,8 @@ The application follows a **Component-Based Architecture** with:
 - **TypeScript**: 5.9.2
 
 ### Key Libraries
+- **@reduxjs/toolkit**: Redux Toolkit for state management
+- **react-redux**: React bindings for Redux
 - **@react-navigation/native**: Navigation framework
 - **expo-image**: Image optimization
 - **expo-splash-screen**: Splash screen management
@@ -93,6 +103,17 @@ furfoce_cursor/
 │   └── ui/
 │       ├── icon-symbol.tsx       # Icon component
 │       └── icon-symbol.ios.tsx   # iOS-specific icons
+│
+├── store/                        # Redux store
+│   ├── index.ts                 # Store configuration
+│   ├── hooks.ts                 # Typed Redux hooks
+│   └── slices/                  # Redux slices
+│       ├── authSlice.ts         # Authentication state
+│       └── shipmentsSlice.ts    # Shipments state
+│
+├── viewmodels/                   # MVVM ViewModels
+│   ├── AuthViewModel.ts         # Authentication ViewModel
+│   └── ShipmentsViewModel.ts    # Shipments ViewModel
 │
 ├── services/                     # Business logic & API
 │   └── api.ts                   # Mock API layer
@@ -145,15 +166,27 @@ Home Screen → Search/Filter → Filter Modal → Apply Filters → Filtered Re
 
 ## Component Architecture
 
+### MVVM Component Structure
+
+```
+View (Component)
+    ↓ uses
+ViewModel (Hook)
+    ↓ uses
+Redux Store (Slices)
+    ↓ uses
+Model (API Service)
+```
+
 ### Component Hierarchy
 
 ```
-RootLayout
+RootLayout (with Redux Provider)
 ├── SplashScreen (Initial)
 └── Stack Navigator
-    ├── LoginScreen (Modal)
+    ├── LoginScreen (uses AuthViewModel)
     └── TabNavigator
-        ├── HomeScreen (Shipments)
+        ├── HomeScreen (uses ShipmentsViewModel)
         ├── ScanScreen
         ├── WalletScreen
         └── ProfileScreen
@@ -167,23 +200,32 @@ RootLayout
   - Animated logo display
   - Login button trigger
 - **Props**: `onLoginPress?: () => void`
+- **Architecture**: Pure View component (no ViewModel needed)
 
 #### 2. **LoginScreen** (`app/login.tsx`)
 - **Purpose**: User authentication
+- **ViewModel**: `useAuthViewModel()`
 - **Features**:
   - Form validation (email, password, URL)
   - Test credentials helper
-  - Loading states
-- **State**: `url`, `email`, `password`, `isLoading`
+  - Loading states from Redux
+- **State Flow**: 
+  - Local state: `url`, `email`, `password` (form inputs)
+  - Redux state: `isLoading`, `error` (from authSlice)
+  - Actions: `handleLogin()` dispatches `loginUser` thunk
 
 #### 3. **HomeScreen** (`app/(tabs)/index.tsx`)
 - **Purpose**: Main shipments dashboard
+- **ViewModel**: `useShipmentsViewModel()`
 - **Features**:
   - Shipment list display
   - Search functionality
   - Filter bottom sheet modal
   - Mark all selection
-- **State**: `shipments`, `selectedShipments`, `searchQuery`, `showFilters`, `selectedFilters`
+- **State Flow**:
+  - Redux state: `filteredShipments`, `searchQuery`, `selectedStatusFilters`, `markAll`
+  - Local state: `showFilters` (UI-only state)
+  - Actions: All handled through ViewModel methods
 
 #### 4. **FilterModal** (Embedded in HomeScreen)
 - **Purpose**: Filter shipments by status
@@ -197,32 +239,114 @@ RootLayout
 ## State Management
 
 ### State Management Approach
-The application uses **React Hooks** for state management:
+The application uses **Redux Toolkit** for centralized state management:
 
-#### Local State (useState)
-- Component-specific state
-- Form inputs
-- UI visibility states
-- Selection states
+#### Redux Store Structure
+- **Auth Slice**: Authentication state (user, isAuthenticated, isLoading, error)
+- **Shipments Slice**: Shipments state (shipments, filteredShipments, search, filters, selections)
 
-#### Example State Patterns
+#### State Flow (MVVM Pattern)
+1. **View**: User interacts with UI component
+2. **ViewModel**: Handles user action, dispatches Redux action
+3. **Redux Slice**: Updates state based on action
+4. **ViewModel**: Selects updated state from Redux store
+5. **View**: Re-renders with new data from ViewModel
+
+#### Example State Structure
 
 ```typescript
-// Home Screen State
-const [shipments, setShipments] = useState<Shipment[]>([]);
-const [selectedShipments, setSelectedShipments] = useState<Set<string>>(new Set());
-const [searchQuery, setSearchQuery] = useState('');
-const [showFilters, setShowFilters] = useState(false);
-const [selectedFilters, setSelectedFilters] = useState<Set<FilterStatus>>(new Set());
+// Redux Store State
+{
+  auth: {
+    user: User | null,
+    isAuthenticated: boolean,
+    isLoading: boolean,
+    error: string | null
+  },
+  shipments: {
+    shipments: Shipment[],
+    filteredShipments: Shipment[],
+    selectedShipments: string[],
+    searchQuery: string,
+    selectedStatusFilters: FilterStatus[],
+    isLoading: boolean,
+    error: string | null,
+    markAll: boolean
+  }
+}
 ```
 
-### State Flow
-1. **Initial Load**: Fetch shipments from API
-2. **User Interaction**: Update local state
-3. **Filter Application**: Filter shipments based on state
-4. **Re-render**: UI updates automatically
+### ViewModel Pattern
+ViewModels act as intermediaries between Views and Redux Store:
+
+```typescript
+// ViewModel Example
+export const useShipmentsViewModel = () => {
+  const dispatch = useAppDispatch();
+  const state = useAppSelector(state => state.shipments);
+  
+  return {
+    // State
+    shipments: state.shipments,
+    // Actions
+    handleSearch: (query) => dispatch(setSearchQuery(query)),
+    // Helpers
+    isShipmentSelected: (id) => state.selectedShipments.includes(id)
+  };
+};
+```
 
 ---
+
+## Redux Store Architecture
+
+### Store Configuration (`store/index.ts`)
+```typescript
+export const store = configureStore({
+  reducer: {
+    auth: authReducer,
+    shipments: shipmentsReducer,
+  },
+});
+```
+
+### Redux Slices
+
+#### Auth Slice (`store/slices/authSlice.ts`)
+- **State**: User authentication state
+- **Actions**: `loginUser` (async thunk), `logout`, `clearError`
+- **Reducers**: Handle pending/fulfilled/rejected states
+
+#### Shipments Slice (`store/slices/shipmentsSlice.ts`)
+- **State**: Shipments data and UI state
+- **Actions**: 
+  - `fetchShipments` (async thunk)
+  - `setSearchQuery`
+  - `toggleStatusFilter`
+  - `toggleShipmentSelection`
+  - `toggleMarkAll`
+- **Selectors**: Computed filtered shipments
+
+### Typed Hooks (`store/hooks.ts`)
+```typescript
+export const useAppDispatch = () => useDispatch<AppDispatch>();
+export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
+```
+
+## ViewModels
+
+### AuthViewModel (`viewmodels/AuthViewModel.ts`)
+- **Purpose**: Authentication logic and state management
+- **Exposes**:
+  - State: `user`, `isAuthenticated`, `isLoading`, `error`
+  - Actions: `handleLogin()`, `handleLogout()`, `clearAuthError()`
+
+### ShipmentsViewModel (`viewmodels/ShipmentsViewModel.ts`)
+- **Purpose**: Shipments management logic
+- **Exposes**:
+  - State: `filteredShipments`, `searchQuery`, `selectedStatusFilters`, `markAll`, `isLoading`
+  - Actions: `handleSearch()`, `handleToggleStatusFilter()`, `handleToggleShipmentSelection()`, etc.
+  - Helpers: `isShipmentSelected()`, `getSelectedCount()`
 
 ## API Layer
 

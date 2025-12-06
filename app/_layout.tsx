@@ -2,45 +2,44 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
-import { useState } from 'react';
+import { Provider } from 'react-redux';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { SplashScreen } from '@/components/splash-screen';
+import { store } from '@/store';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  initialRouteName: 'index',
 };
 
-export default function RootLayout() {
+function AppContent() {
   const colorScheme = useColorScheme();
-  const [isSplashVisible, setIsSplashVisible] = useState(true);
-
-  const handleLoginPress = () => {
-    setIsSplashVisible(false);
-  };
-
-  if (isSplashVisible) {
-    return (
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <SplashScreen onLoginPress={handleLoginPress} />
-      </ThemeProvider>
-    );
-  }
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        <Stack.Screen name="index" />
         <Stack.Screen
           name="login"
           options={{
-            headerShown: false,
             gestureEnabled: false,
             presentation: 'modal',
           }}
         />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <Provider store={store}>
+      <AppContent />
+    </Provider>
   );
 }

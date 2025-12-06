@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   FlatList,
   ScrollView,
-  Alert,
   Modal,
   Animated,
   Dimensions,
@@ -14,7 +13,8 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { shipmentsAPI, Shipment } from '@/services/api';
+import { Shipment } from '@/services/api';
+import { useShipmentsViewModel } from '@/viewmodels/ShipmentsViewModel';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -52,17 +52,22 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function HomeScreen() {
-  const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [selectedShipments, setSelectedShipments] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState('');
-  const [markAll, setMarkAll] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState<Set<FilterStatus>>(new Set());
   const [slideAnim] = useState(new Animated.Value(SCREEN_HEIGHT));
 
-  useEffect(() => {
-    loadShipments();
-  }, []);
+  const {
+    filteredShipments,
+    searchQuery,
+    selectedStatusFilters,
+    markAll,
+    isLoading,
+    handleSearch,
+    handleToggleStatusFilter,
+    handleClearStatusFilters,
+    handleToggleShipmentSelection,
+    handleToggleMarkAll,
+    isShipmentSelected,
+  } = useShipmentsViewModel();
 
   useEffect(() => {
     if (showFilters) {
@@ -81,43 +86,14 @@ export default function HomeScreen() {
     }
   }, [showFilters]);
 
-  const loadShipments = async () => {
-    try {
-      const response = await shipmentsAPI.getShipments();
-      setShipments(response.shipments);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to load shipments');
-    }
+  const getStatusText = (status: Shipment['status']) => {
+    const filterStatus = STATUS_MAP[status] || 'received';
+    return STATUS_LABELS[filterStatus] || 'RECEIVED';
   };
 
-  const toggleShipmentSelection = (id: string) => {
-    const newSelected = new Set(selectedShipments);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedShipments(newSelected);
-    setMarkAll(newSelected.size === shipments.length);
-  };
-
-  const toggleMarkAll = () => {
-    if (markAll) {
-      setSelectedShipments(new Set());
-    } else {
-      setSelectedShipments(new Set(shipments.map(s => s.id)));
-    }
-    setMarkAll(!markAll);
-  };
-
-  const toggleFilter = (status: FilterStatus) => {
-    const newFilters = new Set(selectedFilters);
-    if (newFilters.has(status)) {
-      newFilters.delete(status);
-    } else {
-      newFilters.add(status);
-    }
-    setSelectedFilters(newFilters);
+  const getStatusColor = (status: Shipment['status']) => {
+    const statusText = getStatusText(status);
+    return STATUS_COLORS[statusText] || '#9E9E9E';
   };
 
   const applyFilters = () => {
@@ -128,43 +104,16 @@ export default function HomeScreen() {
     setShowFilters(false);
   };
 
-  const getStatusText = (status: Shipment['status']) => {
-    const filterStatus = STATUS_MAP[status];
-    if (filterStatus) {
-      return STATUS_LABELS[filterStatus];
-    }
-    return 'RECEIVED';
-  };
-
-  const getStatusColor = (status: Shipment['status']) => {
-    const statusText = getStatusText(status);
-    return STATUS_COLORS[statusText] || '#9E9E9E';
-  };
-
-  const filteredShipments = shipments.filter(shipment => {
-    // Search filter
-    const matchesSearch = 
-      shipment.trackingNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shipment.origin.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shipment.destination.toLowerCase().includes(searchQuery.toLowerCase());
-
-    // Status filter
-    const shipmentFilterStatus = STATUS_MAP[shipment.status] || 'received';
-    const matchesStatus = selectedFilters.size === 0 || selectedFilters.has(shipmentFilterStatus);
-
-    return matchesSearch && matchesStatus;
-  });
-
   const renderShipmentItem = ({ item }: { item: Shipment }) => (
     <TouchableOpacity
       style={styles.shipmentItem}
-      onPress={() => toggleShipmentSelection(item.id)}
+      onPress={() => handleToggleShipmentSelection(item.id)}
     >
       <TouchableOpacity
         style={styles.checkbox}
-        onPress={() => toggleShipmentSelection(item.id)}
+        onPress={() => handleToggleShipmentSelection(item.id)}
       >
-        {selectedShipments.has(item.id) && (
+        {isShipmentSelected(item.id) && (
           <View style={styles.checkboxChecked} />
         )}
       </TouchableOpacity>
@@ -203,6 +152,16 @@ export default function HomeScreen() {
     'on-hold',
   ];
 
+  if (isLoading) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ThemedText>Loading shipments...</ThemedText>
+        </View>
+      </ThemedView>
+    );
+  }
+
   return (
     <ThemedView style={styles.container}>
       {/* Header */}
@@ -232,7 +191,7 @@ export default function HomeScreen() {
             placeholder="Search"
             placeholderTextColor="#999"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearch}
           />
         </View>
 
@@ -256,7 +215,7 @@ export default function HomeScreen() {
         <View style={styles.shipmentsSection}>
           <View style={styles.shipmentsHeader}>
             <ThemedText style={styles.shipmentsTitle}>Shipments</ThemedText>
-            <TouchableOpacity onPress={toggleMarkAll} style={styles.markAllContainer}>
+            <TouchableOpacity onPress={handleToggleMarkAll} style={styles.markAllContainer}>
               <View style={styles.checkbox}>
                 {markAll && <View style={styles.checkboxChecked} />}
               </View>
@@ -309,7 +268,7 @@ export default function HomeScreen() {
                 <TouchableOpacity onPress={applyFilters}>
                   <ThemedText style={[
                     styles.modalDoneText,
-                    selectedFilters.size > 0 && styles.modalDoneTextActive
+                    selectedStatusFilters.length > 0 && styles.modalDoneTextActive
                   ]}>
                     Done
                   </ThemedText>
@@ -321,7 +280,7 @@ export default function HomeScreen() {
                 <ThemedText style={styles.filterSectionTitle}>SHIPMENT STATUS</ThemedText>
                 <View style={styles.filterOptions}>
                   {filterOptions.map((status) => {
-                    const isSelected = selectedFilters.has(status);
+                    const isSelected = selectedStatusFilters.includes(status);
                     return (
                       <TouchableOpacity
                         key={status}
@@ -329,7 +288,7 @@ export default function HomeScreen() {
                           styles.filterOption,
                           isSelected && styles.filterOptionSelected,
                         ]}
-                        onPress={() => toggleFilter(status)}
+                        onPress={() => handleToggleStatusFilter(status)}
                       >
                         <ThemedText
                           style={[
@@ -356,6 +315,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
